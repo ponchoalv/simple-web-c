@@ -178,6 +178,7 @@ void *handle_client(void *arg) {
   close(client_fd);
   free(arg);
   free(buffer);
+
   return NULL;
 }
 
@@ -219,7 +220,11 @@ int main(int argc, char *argv[]) {
     }
 
     pthread_t thread_id;
-    pthread_create(&thread_id, NULL, handle_client, (void *)client_fd);
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&thread_id, &attr, handle_client, (void *)client_fd);
+    pthread_attr_destroy(&attr);
     pthread_detach(thread_id);
   }
 
