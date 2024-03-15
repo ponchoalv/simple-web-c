@@ -1,3 +1,4 @@
+#include "dbg.h"
 #include <arpa/inet.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -31,13 +32,23 @@ const char *get_mime_type(const char *file_ext) {
     return "text/html";
   } else if (strcasecmp(file_ext, "txt") == 0) {
     return "text/plain";
-  } else if (strcasecmp(file_ext, "jpg") == 0 || strcasecmp(file_ext, "jpeg") == 0) {
+  } else if (strcasecmp(file_ext, "jpg") == 0 ||
+             strcasecmp(file_ext, "jpeg") == 0) {
     return "image/jpeg";
   } else if (strcasecmp(file_ext, "png") == 0) {
     return "image/png";
   } else {
     return "application/octet-stream";
   }
+}
+
+const char *get_first_line(char *buffer) {
+  char *cur_line = buffer;
+  char *next_line = strchr(cur_line, '\n');
+  if (next_line)
+    *next_line = '\0';
+
+  return cur_line;
 }
 
 bool case_insensitive_compare(const char *s1, const char *s2) {
@@ -92,27 +103,26 @@ char *url_decode(const char *src) {
   return decoded;
 }
 
-void build_http_response(const char *file_name,
-                        const char *file_ext,
-                        char *response,
-                        size_t *response_len) {
+void build_http_response(const char *file_name, const char *file_ext,
+                         char *response, size_t *response_len) {
   // header
   const char *mime_type = get_mime_type(file_ext);
-  char *header = (char* )malloc(BUFFER_SIZE * sizeof(char));
+  char *header = (char *)malloc(BUFFER_SIZE * sizeof(char));
   snprintf(header, BUFFER_SIZE,
-          "HTTP/1.1 200 OK\r\n"
-          "Content-Type: %s\r\n"
-          "\r\n",
-          mime_type);
+           "HTTP/1.1 200 OK\r\n"
+           "Content-Type: %s\r\n"
+           "\r\n",
+           mime_type);
 
   int file_fd = open(file_name, O_RDONLY);
   if (file_fd == -1) {
     snprintf(response, BUFFER_SIZE,
-            "HTTP/1.1 404 Not Found\r\n"
-            "Content-Type: text/plain\r\n"
-            "\r\n"
-            "404 Not Found");
+             "HTTP/1.1 404 Not Found\r\n"
+             "Content-Type: text/plain\r\n"
+             "\r\n"
+             "404 Not Found");
     *response_len = strlen(response);
+    free(header);
     return;
   }
 
@@ -125,8 +135,7 @@ void build_http_response(const char *file_name,
   *response_len += strlen(header);
 
   ssize_t bytes_read;
-  while ((bytes_read = read(file_fd,
-                            response + *response_len,
+  while ((bytes_read = read(file_fd, response + *response_len,
                             BUFFER_SIZE - *response_len)) > 0) {
     *response_len += bytes_read;
   }
@@ -144,6 +153,8 @@ void *handle_client(void *arg) {
     regex_t regex;
     regcomp(&regex, "^GET /([^ ]*) HTTP/1", REG_EXTENDED);
     regmatch_t matches[2];
+
+    log_info("Received %s\n", get_first_line(buffer));
 
     if (regexec(&regex, buffer, 2, matches, 0) == 0) {
       buffer[matches[1].rm_eo] = '\0';
@@ -183,7 +194,8 @@ int main(int argc, char *argv[]) {
   server_addr.sin_addr.s_addr = INADDR_ANY;
   server_addr.sin_port = htons(PORT);
 
-  if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+  if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
+      0) {
     perror("bind failed");
     exit(EXIT_FAILURE);
   }
@@ -193,13 +205,15 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  printf("Server listening on port %d\n", PORT);
+  log_info("Server listening on port %d\n", PORT);
+
   while (1) {
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     int *client_fd = malloc(sizeof(int));
 
-    if ((*client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len)) < 0) {
+    if ((*client_fd = accept(server_fd, (struct sockaddr *)&client_addr,
+                             &client_addr_len)) < 0) {
       perror("accept failed");
       continue;
     }
