@@ -1,8 +1,9 @@
 CC=gcc
-CFLAGS=-I. -lpthreadpool
+CFLAGS=-Wall -I. -lpthreadpool
 DEPS=
 OBJ=server.o
-TEST_OBJ=test_dbg.o
+TEST_DBG_OBJ=test_dbg.o
+TEST_SERVER_OBJ=test_server.o
 USERID=123456789
 
 %.o: %.c $(DEPS)
@@ -22,6 +23,10 @@ tarball: clean
 debug: $(OBJ)
 		$(CC) -o $@ $^ $(CFLAGS) -g
 
-test_dbg: $(TEST_OBJ)
+test_dbg: $(TEST_DBG_OBJ)
 		$(CC) -o $@ $^ $(CFLAGS) -lcmocka
+		./$@
+
+test_server: $(TEST_SERVER_OBJ)
+		$(CC) -o $@ $^ server.o $(CFLAGS) -lcmocka
 		./$@
