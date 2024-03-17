@@ -3,4 +3,4 @@ server
 debug
 test_dbg
 test_server
-
+stderr.txt
