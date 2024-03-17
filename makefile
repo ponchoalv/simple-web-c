@@ -2,7 +2,7 @@ CC=gcc
 CFLAGS=-I.
 DEPS=
 OBJ=server.o
-TEST_OBJ=test.o
+TEST_OBJ=test_dbg.o
 USERID=123456789
 
 %.o: %.c $(DEPS)
@@ -22,6 +22,6 @@ tarball: clean
 debug: $(OBJ)
 		$(CC) -o $@ $^ $(CFLAGS) -g
 
-test: $(TEST_OBJ)
+test_dbg: $(TEST_OBJ)
 		$(CC) -o $@ $^ $(CFLAGS) -lcmocka
-		./test
+		./$@
