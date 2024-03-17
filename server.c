@@ -15,9 +15,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <pthreadpool.h>
+#include <signal.h>
 
 #define PORT 9090
 #define BUFFER_SIZE 104857600
+#define THREAD_COUNT 6
 
 const char *get_file_extension(const char *file_name) {
   const char *dot = strrchr(file_name, '.');
@@ -143,7 +146,7 @@ void build_http_response(const char *file_name, const char *file_ext,
   close(file_fd);
 }
 
-void *handle_client(void *arg) {
+void handle_client(void *arg, size_t index) {
   int client_fd = *((int *)arg);
   char *buffer = (char *)malloc(BUFFER_SIZE * sizeof(char));
 
@@ -179,12 +182,13 @@ void *handle_client(void *arg) {
   free(arg);
   free(buffer);
 
-  return NULL;
+  return;
 }
 
 int main(int argc, char *argv[]) {
   int server_fd;
   struct sockaddr_in server_addr;
+  pthreadpool_t thread_pool = pthreadpool_create(THREAD_COUNT);
 
   if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     perror("socket failed");
@@ -198,11 +202,13 @@ int main(int argc, char *argv[]) {
   if (bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) <
       0) {
     perror("bind failed");
+    close(server_fd);
     exit(EXIT_FAILURE);
   }
 
-  if (listen(server_fd, 10) < 0) {
+  if (listen(server_fd, 6) < 0) {
     perror("listen failed");
+    close(server_fd);
     exit(EXIT_FAILURE);
   }
 
@@ -219,15 +225,10 @@ int main(int argc, char *argv[]) {
       continue;
     }
 
-    pthread_t thread_id;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&thread_id, &attr, handle_client, (void *)client_fd);
-    pthread_attr_destroy(&attr);
-    pthread_detach(thread_id);
+    pthreadpool_parallelize_1d(thread_pool, handle_client, client_fd, 1, 0);
   }
 
+  pthreadpool_destroy(thread_pool);
   close(server_fd);
   return 0;
 }

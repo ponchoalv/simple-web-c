@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I.
+CFLAGS=-I. -lpthreadpool
 DEPS=
 OBJ=server.o
 TEST_OBJ=test_dbg.o
